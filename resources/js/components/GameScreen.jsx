@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import GameMenu from './GameMenu';
-import CenarioCanvas from './CenarioCanvas';
+import PixiGame from './PixiGame';
 
 export default function GameScreen() {
   const [screen, setScreen] = useState('menu');
@@ -10,9 +10,7 @@ export default function GameScreen() {
   const [items, setItems] = useState([]);
 
   function handleMenuSelect(option) {
-    if (option === 'novo') {
-      setScreen('jogo');
-    }
+    if (option === 'novo') setScreen('jogo');
     if (option === 'carregar') setScreen('carregar');
     if (option === 'config') setScreen('config');
   }
@@ -24,6 +22,12 @@ export default function GameScreen() {
         .then(data => {
           setTiles(data.scene.tiles || []);
           setItems(data.scene.items || []);
+          if (data.scene.tiles && data.scene.tiles.length > 0) {
+            const maxX = Math.max(...data.scene.tiles.map(t => t.x));
+            const maxY = Math.max(...data.scene.tiles.map(t => t.y));
+            setSceneWidth(maxX + 1);
+            setSceneHeight(maxY + 1);
+          }
         })
         .catch(err => console.error('Erro ao carregar cenário:', err));
     }
@@ -33,11 +37,11 @@ export default function GameScreen() {
     <div>
       {screen === 'menu' && <GameMenu onSelect={handleMenuSelect} />}
       {screen === 'jogo' && (
-        <CenarioCanvas
+        <PixiGame
           tiles={tiles}
           items={items}
-          width={sceneWidth}
-          height={sceneHeight}
+          width={sceneWidth * 64}
+          height={sceneHeight * 32}
         />
       )}
       {screen === 'carregar' && (

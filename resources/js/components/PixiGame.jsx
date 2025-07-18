@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from "react";
-import { Application, Texture, Sprite, Graphics, Container } from "pixi.js";
+import { Application, Texture, Sprite, Graphics, Container, Assets } from "pixi.js";
 
 const tileWidth = 64;
 const tileHeight = 32;
 
+// Função para converter coordenadas de grade para isométrico
 function toIsometric(x, y) {
   const screenX = (x - y) * (tileWidth / 2);
   const screenY = (x + y) * (tileHeight / 2);
@@ -16,6 +17,11 @@ const PixiGame = ({ width = 800, height = 600, tiles = [], items = [] }) => {
   useEffect(() => {
     let app;
     let destroyed = false;
+    let dragging = false;
+    let lastPos = { x: 0, y: 0 };
+    let zoom = 1;
+
+    let onMouseDown, onMouseUp, onMouseMove, onWheel;
 
     async function initPixi() {
       app = new Application();
@@ -34,16 +40,17 @@ const PixiGame = ({ width = 800, height = 600, tiles = [], items = [] }) => {
 
       pixiRef.current.appendChild(app.canvas);
 
+      app.stage.removeChildren();
+
       const mapContainer = new Container();
       app.stage.addChild(mapContainer);
-
       mapContainer.x = width / 2;
       mapContainer.y = 100;
+      mapContainer.scale.set(zoom, zoom);
 
       tiles.forEach(tile => {
         const { screenX, screenY } = toIsometric(tile.x, tile.y);
         const g = new Graphics();
-        // Desenha losango
         g.lineStyle(1, 0x444444)
           .beginFill(
             tile.type === "floor"
@@ -63,29 +70,74 @@ const PixiGame = ({ width = 800, height = 600, tiles = [], items = [] }) => {
         mapContainer.addChild(g);
       });
 
-      // Renderizar itens
-      items.forEach(item => {
+      for (const item of items) {
         const { screenX, screenY } = toIsometric(item.position_x, item.position_y);
         if (item.icon) {
-          const texture = Texture.from(item.icon);
+          await Assets.load(item.icon);
+          const texture = Assets.get(item.icon) || Texture.from(item.icon);
           const sprite = new Sprite(texture);
           sprite.x = screenX;
-          sprite.y = screenY - 32; 
+          sprite.y = screenY;
+
+          const scaleX = tileWidth / sprite.texture.width;
+          const scaleY = tileHeight / sprite.texture.height;
+          const scale = Math.max(scaleX, scaleY);
+          sprite.scale.set(scale, scale);
           sprite.anchor.set(0.5, 1);
+          sprite.zIndex = item.position_x + item.position_y;
+
           mapContainer.addChild(sprite);
         } else {
           const g = new Graphics();
           g.beginFill(0xff0000).drawCircle(screenX, screenY, 12).endFill();
           mapContainer.addChild(g);
         }
-      });
+      }
+
+      mapContainer.sortableChildren = true;
+
+      function setZoom(newZoom) {
+        zoom = Math.max(0.3, Math.min(2, newZoom)); // Limite de zoom
+        mapContainer.scale.set(zoom, zoom);
+      }
+
+      onMouseDown = (e) => { dragging = true; lastPos = { x: e.clientX, y: e.clientY }; };
+      onMouseUp = () => { dragging = false; };
+      onMouseMove = (e) => {
+        if (dragging) {
+          const dx = e.clientX - lastPos.x;
+          const dy = e.clientY - lastPos.y;
+          mapContainer.x += dx;
+          mapContainer.y += dy;
+          lastPos = { x: e.clientX, y: e.clientY };
+        }
+      };
+      onWheel = (e) => {
+        e.preventDefault();
+        setZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1));
+      };
+
+      app.canvas.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mouseup', onMouseUp);
+      app.canvas.addEventListener('mousemove', onMouseMove);
+      app.canvas.addEventListener('wheel', onWheel);
     }
 
     initPixi();
 
     return () => {
       destroyed = true;
-      if (app) app.destroy(true, { children: true });
+      if (app) {
+        if (app.canvas) {
+          app.canvas.removeEventListener('mousedown', onMouseDown);
+          app.canvas.removeEventListener('mousemove', onMouseMove);
+          app.canvas.removeEventListener('wheel', onWheel);
+        }
+        window.removeEventListener('mouseup', onMouseUp);
+        if (app.destroy && typeof app.destroy === "function") {
+          app.destroy(true, { children: true });
+        }
+      }
     };
   }, [width, height, tiles, items]);
 

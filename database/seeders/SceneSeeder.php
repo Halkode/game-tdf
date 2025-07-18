@@ -49,5 +49,18 @@ class SceneSeeder extends Seeder
             'position_x' => 3,
             'position_y' => 2
         ]);
+
+        Item::create([
+            'scene_id' => $scene->id,
+            'name' => 'Cadeira de Madeira',
+            'description' => 'Uma cadeira de madeira frágil.',
+            'icon' => '/images/cadeira.png',
+            'type' => 'cenario',
+            'is_pickable' => false,
+            'is_important' => true,
+            'weight' => 0,
+            'position_x' => 2,
+            'position_y' => 2
+        ]);
     }
 }
