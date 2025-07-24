@@ -37,15 +37,65 @@ class FogOfWarFilter extends Filter {
         };
 
         super(null, fragmentShader, uniforms);
+        
+        // Store initial values for later access
+        this._lightX = lightX;
+        this._lightY = lightY;
+        this._lightRadius = lightRadius;
     }
 
     updateLight(x, y, radius) {
-        this.uniforms.lightPos = [x, y];
-        this.uniforms.lightRadius = radius;
+        // Update the stored values
+        this._lightX = x;
+        this._lightY = y;
+        this._lightRadius = radius;
+        
+        // Update uniforms safely
+        if (this.uniforms) {
+            this.uniforms.lightPos = [x, y];
+            this.uniforms.lightRadius = radius;
+        }
     }
 }
 
-const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], playerInitialPosition = { x: 0, y: 0 }, onPick, onExamine, onMove }) => {
+const PixiGameImproved = ({ 
+    width = 800, 
+    height = 600, 
+    tiles = [
+        // Default tiles for demo
+        { x: 0, y: 0, type: "floor" },
+        { x: 1, y: 0, type: "floor" },
+        { x: 0, y: 1, type: "floor" },
+        { x: 1, y: 1, type: "wall" },
+        { x: 2, y: 0, type: "water" },
+        { x: 2, y: 1, type: "floor" },
+        { x: -1, y: 0, type: "floor" },
+        { x: -1, y: 1, type: "floor" },
+        { x: 0, y: -1, type: "floor" },
+        { x: 1, y: -1, type: "floor" },
+    ], 
+    items = [
+        // Default items for demo
+        { 
+            id: 1, 
+            name: "Mysterious Key", 
+            description: "An old rusty key with strange markings", 
+            position_x: 1, 
+            position_y: 0 
+        },
+        { 
+            id: 2, 
+            name: "Health Potion", 
+            description: "A glowing red potion that looks magical", 
+            position_x: -1, 
+            position_y: 1 
+        }
+    ], 
+    playerInitialPosition = { x: 0, y: 0 }, 
+    onPick, 
+    onExamine, 
+    onMove 
+}) => {
     const pixiRef = useRef(null);
     const [selectedItem, setSelectedItem] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -69,7 +119,7 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
             await app.init({
                 width,
                 height,
-                backgroundColor: 0x1a1a1a, // Cor mais escura para atmosfera Darkwood
+                backgroundColor: 0x1a1a1a,
                 webgl: { antialias: true },
                 webgpu: { antialias: false },
             });
@@ -88,32 +138,36 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
             mapContainer.y = 100;
             mapContainer.scale.set(zoom, zoom);
 
-            // Criar fog of war filter
-            fogFilter = new FogOfWarFilter(150, width / 2, height / 2);
-            mapContainer.filters = [fogFilter];
+            // Create fog of war filter with safer initialization
+            try {
+                fogFilter = new FogOfWarFilter(150, width / 2, height / 2);
+                mapContainer.filters = [fogFilter];
+            } catch (error) {
+                console.warn("Fog of war filter failed to initialize:", error);
+                fogFilter = null;
+            }
 
-            // Renderizar tiles com cores atmosféricas
+            // Render tiles with atmospheric colors
             tiles.forEach(tile => {
                 const { screenX, screenY } = toIsometric(tile.x, tile.y);
                 const g = new Graphics();
                 
-                // Paleta de cores inspirada em Darkwood
                 let fillColor;
                 switch (tile.type) {
                     case "floor":
-                        fillColor = 0x4a5d23; // Verde escuro terroso
+                        fillColor = 0x4a5d23;
                         break;
                     case "wall":
-                        fillColor = 0x3d3d3d; // Cinza escuro
+                        fillColor = 0x3d3d3d;
                         break;
                     case "water":
-                        fillColor = 0x1e3a5f; // Azul escuro
+                        fillColor = 0x1e3a5f;
                         break;
                     default:
-                        fillColor = 0x2d2d2d; // Cinza muito escuro
+                        fillColor = 0x2d2d2d;
                 }
                 
-                g.lineStyle(1, 0x222222) // Bordas mais escuras
+                g.lineStyle(1, 0x222222)
                     .beginFill(fillColor)
                     .moveTo(screenX, screenY)
                     .lineTo(screenX + tileWidth / 2, screenY + tileHeight / 2)
@@ -122,7 +176,6 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                     .lineTo(screenX, screenY)
                     .endFill();
                     
-                // Adicionar interatividade para movimento
                 g.interactive = true;
                 g.buttonMode = true;
                 g.on('pointerdown', () => {
@@ -132,9 +185,9 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                 mapContainer.addChild(g);
             });
 
-            // Criar sprite do player
+            // Create player sprite
             const playerGraphics = new Graphics();
-            playerGraphics.beginFill(0xff6b35) // Cor laranja para visibilidade
+            playerGraphics.beginFill(0xff6b35)
                 .drawCircle(0, 0, 8)
                 .endFill();
             
@@ -145,63 +198,42 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
             playerSprite.x = playerScreenX;
             playerSprite.y = playerScreenY;
             playerSprite.anchor.set(0.5, 0.5);
-            playerSprite.zIndex = 1000; // Sempre no topo
+            playerSprite.zIndex = 1000;
             
             mapContainer.addChild(playerSprite);
 
-            // Renderizar itens com melhor feedback visual
+            // Render items
             for (const item of items) {
                 const { screenX, screenY } = toIsometric(item.position_x, item.position_y);
                 
-                if (item.icon) {
-                    await Assets.load(item.icon);
-                    const texture = Assets.get(item.icon) || Texture.from(item.icon);
-                    const sprite = new Sprite(texture);
-                    sprite.x = screenX;
-                    sprite.y = screenY;
+                // Create a simple colored circle for items since we don't have icons
+                const itemGraphics = new Graphics();
+                itemGraphics.beginFill(0xcc4125)
+                    .drawCircle(0, 0, 12)
+                    .endFill();
+                
+                const itemTexture = app.renderer.generateTexture(itemGraphics);
+                const sprite = new Sprite(itemTexture);
+                sprite.x = screenX;
+                sprite.y = screenY;
+                sprite.anchor.set(0.5, 0.5);
+                sprite.zIndex = item.position_x + item.position_y;
 
-                    const scaleX = tileWidth / sprite.texture.width;
-                    const scaleY = tileHeight / sprite.texture.height;
-                    const scale = Math.max(scaleX, scaleY);
-                    sprite.scale.set(scale, scale);
-                    sprite.anchor.set(0.5, 1);
-                    sprite.zIndex = item.position_x + item.position_y;
+                sprite.interactive = true;
+                sprite.buttonMode = true;
 
-                    sprite.interactive = true;
-                    sprite.buttonMode = true;
-
-                    sprite
-                        .on('pointerover', () => {
-                            sprite.tint = 0xffff88; // Amarelo mais suave
-                            setHoveredItem(item);
-                            // Mudar cursor
-                            app.canvas.style.cursor = 'pointer';
-                        })
-                        .on('pointerout', () => {
-                            sprite.tint = 0xffffff;
-                            setHoveredItem(null);
-                            app.canvas.style.cursor = 'default';
-                        })
-                        .on('pointerdown', (event) => {
-                            event.stopPropagation();
-                            const globalPos = event.data.global;
-                            setSelectedItem(item);
-                            setMenuPosition({ 
-                                x: Math.min(globalPos.x, width - 120), // Evita sair da tela
-                                y: Math.min(globalPos.y, height - 80) 
-                            });
-                        });
-
-                    mapContainer.addChild(sprite);
-                } else {
-                    // Item sem sprite - círculo vermelho
-                    const g = new Graphics();
-                    g.beginFill(0xcc4125) // Vermelho mais escuro
-                        .drawCircle(screenX, screenY, 12)
-                        .endFill();
-                    g.interactive = true;
-                    g.buttonMode = true;
-                    g.on('pointerdown', (event) => {
+                sprite
+                    .on('pointerover', () => {
+                        sprite.tint = 0xffff88;
+                        setHoveredItem(item);
+                        app.canvas.style.cursor = 'pointer';
+                    })
+                    .on('pointerout', () => {
+                        sprite.tint = 0xffffff;
+                        setHoveredItem(null);
+                        app.canvas.style.cursor = 'default';
+                    })
+                    .on('pointerdown', (event) => {
                         event.stopPropagation();
                         const globalPos = event.data.global;
                         setSelectedItem(item);
@@ -210,40 +242,52 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                             y: Math.min(globalPos.y, height - 80) 
                         });
                     });
-                    mapContainer.addChild(g);
-                }
+
+                mapContainer.addChild(sprite);
             }
 
             mapContainer.sortableChildren = true;
 
-            // Função para mover o player
+            // Function to move player
             function movePlayerTo(targetX, targetY) {
                 setPlayerPosition({ x: targetX, y: targetY });
                 const { screenX, screenY } = toIsometric(targetX, targetY);
                 
-                // Animação suave do movimento
+                // Safety check - make sure playerSprite exists
+                if (!playerSprite) return;
+                
                 const startX = playerSprite.x;
                 const startY = playerSprite.y;
-                const duration = 500; // 500ms
+                const duration = 500;
                 const startTime = Date.now();
+                let animationId;
                 
                 function animate() {
+                    // Safety check - component might have been destroyed
+                    if (destroyed || !playerSprite || !mapContainer) {
+                        if (animationId) {
+                            cancelAnimationFrame(animationId);
+                        }
+                        return;
+                    }
+                    
                     const elapsed = Date.now() - startTime;
                     const progress = Math.min(elapsed / duration, 1);
                     
-                    // Interpolação suave
                     const easeProgress = 1 - Math.pow(1 - progress, 3);
                     
                     playerSprite.x = startX + (screenX - startX) * easeProgress;
                     playerSprite.y = startY + (screenY - startY) * easeProgress;
                     
-                    // Atualizar posição da luz
-                    const lightX = mapContainer.x + playerSprite.x * zoom;
-                    const lightY = mapContainer.y + playerSprite.y * zoom;
-                    fogFilter.updateLight(lightX, lightY, 150 * zoom);
+                    // Update fog of war light position safely
+                    if (fogFilter && fogFilter.updateLight && mapContainer) {
+                        const lightX = mapContainer.x + playerSprite.x * zoom;
+                        const lightY = mapContainer.y + playerSprite.y * zoom;
+                        fogFilter.updateLight(lightX, lightY, 150 * zoom);
+                    }
                     
-                    if (progress < 1) {
-                        requestAnimationFrame(animate);
+                    if (progress < 1 && !destroyed) {
+                        animationId = requestAnimationFrame(animate);
                     }
                 }
                 
@@ -252,12 +296,18 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
 
             function setZoom(newZoom) {
                 zoom = Math.max(0.3, Math.min(2, newZoom));
+                
+                // Safety check before accessing mapContainer
+                if (!mapContainer) return;
+                
                 mapContainer.scale.set(zoom, zoom);
                 
-                // Atualizar fog of war com novo zoom
-                const lightX = mapContainer.x + playerSprite.x * zoom;
-                const lightY = mapContainer.y + playerSprite.y * zoom;
-                fogFilter.updateLight(lightX, lightY, 150 * zoom);
+                // Update fog of war with new zoom safely
+                if (fogFilter && fogFilter.updateLight && playerSprite && mapContainer) {
+                    const lightX = mapContainer.x + playerSprite.x * zoom;
+                    const lightY = mapContainer.y + playerSprite.y * zoom;
+                    fogFilter.updateLight(lightX, lightY, 150 * zoom);
+                }
             }
 
             // Event listeners
@@ -271,17 +321,19 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
             };
             
             onMouseMove = (e) => {
-                if (dragging) {
+                if (dragging && mapContainer) {
                     const dx = e.clientX - lastPos.x;
                     const dy = e.clientY - lastPos.y;
                     mapContainer.x += dx;
                     mapContainer.y += dy;
                     lastPos = { x: e.clientX, y: e.clientY };
                     
-                    // Atualizar fog of war
-                    const lightX = mapContainer.x + playerSprite.x * zoom;
-                    const lightY = mapContainer.y + playerSprite.y * zoom;
-                    fogFilter.updateLight(lightX, lightY, 150 * zoom);
+                    // Update fog of war safely
+                    if (fogFilter && fogFilter.updateLight && playerSprite && mapContainer) {
+                        const lightX = mapContainer.x + playerSprite.x * zoom;
+                        const lightY = mapContainer.y + playerSprite.y * zoom;
+                        fogFilter.updateLight(lightX, lightY, 150 * zoom);
+                    }
                 }
             };
             
@@ -291,7 +343,6 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
             };
 
             onCanvasClick = (e) => {
-                // Fechar menu se clicar fora
                 if (selectedItem) {
                     setSelectedItem(null);
                 }
@@ -303,10 +354,12 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
             app.canvas.addEventListener('wheel', onWheel);
             app.canvas.addEventListener('click', onCanvasClick);
 
-            // Inicializar posição da luz
-            const lightX = mapContainer.x + playerSprite.x * zoom;
-            const lightY = mapContainer.y + playerSprite.y * zoom;
-            fogFilter.updateLight(lightX, lightY, 150 * zoom);
+            // Initialize light position safely
+            if (fogFilter && fogFilter.updateLight && playerSprite && mapContainer) {
+                const lightX = mapContainer.x + playerSprite.x * zoom;
+                const lightY = mapContainer.y + playerSprite.y * zoom;
+                fogFilter.updateLight(lightX, lightY, 150 * zoom);
+            }
         }
 
         initPixi();
@@ -328,12 +381,13 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
         };
     }, [width, height, tiles, items, playerPosition]);
 
-    // Funções de ação do menu contextual
+    // Context menu action functions
     const handlePick = (item) => {
         if (onPick) {
             onPick(item);
         } else {
-            console.log(`Pegando item: ${item.name}`);
+            console.log(`Picking up item: ${item.name}`);
+            alert(`You picked up: ${item.name}`);
         }
         setSelectedItem(null);
     };
@@ -342,8 +396,8 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
         if (onExamine) {
             onExamine(item);
         } else {
-            console.log(`Examinando item: ${item.name}`);
-            alert(`${item.name}: ${item.description || 'Um objeto interessante.'}`);
+            console.log(`Examining item: ${item.name}`);
+            alert(`${item.name}: ${item.description || 'An interesting object.'}`);
         }
         setSelectedItem(null);
     };
@@ -352,8 +406,7 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
         if (onMove) {
             onMove(item);
         } else {
-            console.log(`Movendo para: ${item.name}`);
-            // Mover player para a posição do item
+            console.log(`Moving to: ${item.name}`);
             setPlayerPosition({ x: item.position_x, y: item.position_y });
         }
         setSelectedItem(null);
@@ -363,7 +416,7 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
         <div style={{ position: 'relative', width, height, backgroundColor: '#0a0a0a' }}>
             <div ref={pixiRef} />
             
-            {/* Tooltip para item em hover */}
+            {/* Hover tooltip */}
             {hoveredItem && (
                 <div style={{
                     position: 'absolute',
@@ -381,7 +434,7 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                 </div>
             )}
             
-            {/* Menu contextual */}
+            {/* Context menu */}
             {selectedItem && (
                 <div style={{
                     position: 'absolute',
@@ -410,7 +463,7 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                         onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                     >
-                        🤏 Pegar
+                        🤏 Pick Up
                     </div>
                     <div 
                         style={{ 
@@ -423,7 +476,7 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                         onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                     >
-                        🔍 Examinar
+                        🔍 Examine
                     </div>
                     <div 
                         style={{ 
@@ -436,12 +489,12 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                         onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                     >
-                        🚶 Mover para
+                        🚶 Move To
                     </div>
                 </div>
             )}
             
-            {/* HUD minimalista */}
+            {/* Minimalist HUD */}
             <div style={{
                 position: 'absolute',
                 top: 10,
@@ -452,11 +505,27 @@ const PixiGameImproved = ({ width = 800, height = 600, tiles = [], items = [], p
                 padding: '8px',
                 borderRadius: '4px'
             }}>
-                Posição: ({playerPosition.x}, {playerPosition.y})
+                Position: ({playerPosition.x}, {playerPosition.y})
+            </div>
+            
+            {/* Instructions */}
+            <div style={{
+                position: 'absolute',
+                bottom: 10,
+                left: 10,
+                color: '#aaa',
+                fontSize: '11px',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                padding: '6px',
+                borderRadius: '4px',
+                maxWidth: '200px'
+            }}>
+                • Click tiles to move
+                • Click items for context menu
+                • Drag to pan, scroll to zoom
             </div>
         </div>
     );
 };
 
 export default PixiGameImproved;
-
