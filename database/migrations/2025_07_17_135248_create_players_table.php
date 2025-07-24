@@ -13,13 +13,14 @@ return new class extends Migration
     {
         Schema::create('players', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade'); // Usuário dono do player (pode ser nulo para jogadores anônimos)
-            $table->integer('hunger')->default(100);    // Fome
-            $table->integer('thirst')->default(100);    // Sede
-            $table->integer('sanity')->default(100);    // Sanidade
-            $table->integer('fatigue')->default(0);     // Fadiga
-            $table->string('status')->nullable();       // Ex: 'vivo', 'morto', 'ferido'
-            $table->json('clothing_json')->nullable();  // Equipamentos/roupas do jogador
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade'); 
+            $table->integer('current_scene_id')->nullable();
+            $table->integer('hunger')->default(100);    
+            $table->integer('thirst')->default(100);    
+            $table->integer('sanity')->default(100);   
+            $table->integer('fatigue')->default(0);    
+            $table->string('status')->nullable();    
+            $table->json('clothing_json')->nullable();  
             $table->timestamps();
         });
     }
