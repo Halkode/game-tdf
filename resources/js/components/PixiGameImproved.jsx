@@ -37,7 +37,7 @@ class FogOfWarFilter extends Filter {
         };
 
         super(null, fragmentShader, uniforms);
-        
+
         // Store initial values for later access
         this._lightX = lightX;
         this._lightY = lightY;
@@ -49,7 +49,7 @@ class FogOfWarFilter extends Filter {
         this._lightX = x;
         this._lightY = y;
         this._lightRadius = radius;
-        
+
         // Update uniforms safely
         if (this.uniforms) {
             this.uniforms.lightPos = [x, y];
@@ -58,11 +58,10 @@ class FogOfWarFilter extends Filter {
     }
 }
 
-const PixiGameImproved = ({ 
-    width = 800, 
-    height = 600, 
+const PixiGameImproved = ({
+    width = 800,
+    height = 600,
     tiles = [
-        // Default tiles for demo
         { x: 0, y: 0, type: "floor" },
         { x: 1, y: 0, type: "floor" },
         { x: 0, y: 1, type: "floor" },
@@ -73,28 +72,27 @@ const PixiGameImproved = ({
         { x: -1, y: 1, type: "floor" },
         { x: 0, y: -1, type: "floor" },
         { x: 1, y: -1, type: "floor" },
-    ], 
+    ],
     items = [
-        // Default items for demo
-        { 
-            id: 1, 
-            name: "Mysterious Key", 
-            description: "An old rusty key with strange markings", 
-            position_x: 1, 
-            position_y: 0 
+        {
+            id: 1,
+            name: "Mysterious Key",
+            description: "An old rusty key with strange markings",
+            position_x: 1,
+            position_y: 0
         },
-        { 
-            id: 2, 
-            name: "Health Potion", 
-            description: "A glowing red potion that looks magical", 
-            position_x: -1, 
-            position_y: 1 
+        {
+            id: 2,
+            name: "Health Potion",
+            description: "A glowing red potion that looks magical",
+            position_x: -1,
+            position_y: 1
         }
-    ], 
-    playerInitialPosition = { x: 0, y: 0 }, 
-    onPick, 
-    onExamine, 
-    onMove 
+    ],
+    playerInitialPosition = { x: 0, y: 0 },
+    onPick,
+    onExamine,
+    onMove
 }) => {
     const pixiRef = useRef(null);
     const [selectedItem, setSelectedItem] = useState(null);
@@ -151,7 +149,7 @@ const PixiGameImproved = ({
             tiles.forEach(tile => {
                 const { screenX, screenY } = toIsometric(tile.x, tile.y);
                 const g = new Graphics();
-                
+
                 let fillColor;
                 switch (tile.type) {
                     case "floor":
@@ -166,7 +164,7 @@ const PixiGameImproved = ({
                     default:
                         fillColor = 0x2d2d2d;
                 }
-                
+
                 g.lineStyle(1, 0x222222)
                     .beginFill(fillColor)
                     .moveTo(screenX, screenY)
@@ -175,13 +173,13 @@ const PixiGameImproved = ({
                     .lineTo(screenX - tileWidth / 2, screenY + tileHeight / 2)
                     .lineTo(screenX, screenY)
                     .endFill();
-                    
+
                 g.interactive = true;
                 g.buttonMode = true;
                 g.on('pointerdown', () => {
                     movePlayerTo(tile.x, tile.y);
                 });
-                
+
                 mapContainer.addChild(g);
             });
 
@@ -190,28 +188,28 @@ const PixiGameImproved = ({
             playerGraphics.beginFill(0xff6b35)
                 .drawCircle(0, 0, 8)
                 .endFill();
-            
+
             const playerTexture = app.renderer.generateTexture(playerGraphics);
             playerSprite = new Sprite(playerTexture);
-            
+
             const { screenX: playerScreenX, screenY: playerScreenY } = toIsometric(playerPosition.x, playerPosition.y);
             playerSprite.x = playerScreenX;
             playerSprite.y = playerScreenY;
             playerSprite.anchor.set(0.5, 0.5);
             playerSprite.zIndex = 1000;
-            
+
             mapContainer.addChild(playerSprite);
 
             // Render items
             for (const item of items) {
                 const { screenX, screenY } = toIsometric(item.position_x, item.position_y);
-                
+
                 // Create a simple colored circle for items since we don't have icons
                 const itemGraphics = new Graphics();
                 itemGraphics.beginFill(0xcc4125)
                     .drawCircle(0, 0, 12)
                     .endFill();
-                
+
                 const itemTexture = app.renderer.generateTexture(itemGraphics);
                 const sprite = new Sprite(itemTexture);
                 sprite.x = screenX;
@@ -237,9 +235,9 @@ const PixiGameImproved = ({
                         event.stopPropagation();
                         const globalPos = event.data.global;
                         setSelectedItem(item);
-                        setMenuPosition({ 
+                        setMenuPosition({
                             x: Math.min(globalPos.x, width - 120),
-                            y: Math.min(globalPos.y, height - 80) 
+                            y: Math.min(globalPos.y, height - 80)
                         });
                     });
 
@@ -252,16 +250,16 @@ const PixiGameImproved = ({
             function movePlayerTo(targetX, targetY) {
                 setPlayerPosition({ x: targetX, y: targetY });
                 const { screenX, screenY } = toIsometric(targetX, targetY);
-                
+
                 // Safety check - make sure playerSprite exists
                 if (!playerSprite) return;
-                
+
                 const startX = playerSprite.x;
                 const startY = playerSprite.y;
                 const duration = 500;
                 const startTime = Date.now();
                 let animationId;
-                
+
                 function animate() {
                     // Safety check - component might have been destroyed
                     if (destroyed || !playerSprite || !mapContainer) {
@@ -270,38 +268,38 @@ const PixiGameImproved = ({
                         }
                         return;
                     }
-                    
+
                     const elapsed = Date.now() - startTime;
                     const progress = Math.min(elapsed / duration, 1);
-                    
+
                     const easeProgress = 1 - Math.pow(1 - progress, 3);
-                    
+
                     playerSprite.x = startX + (screenX - startX) * easeProgress;
                     playerSprite.y = startY + (screenY - startY) * easeProgress;
-                    
+
                     // Update fog of war light position safely
                     if (fogFilter && fogFilter.updateLight && mapContainer) {
                         const lightX = mapContainer.x + playerSprite.x * zoom;
                         const lightY = mapContainer.y + playerSprite.y * zoom;
                         fogFilter.updateLight(lightX, lightY, 150 * zoom);
                     }
-                    
+
                     if (progress < 1 && !destroyed) {
                         animationId = requestAnimationFrame(animate);
                     }
                 }
-                
+
                 animate();
             }
 
             function setZoom(newZoom) {
                 zoom = Math.max(0.3, Math.min(2, newZoom));
-                
+
                 // Safety check before accessing mapContainer
                 if (!mapContainer) return;
-                
+
                 mapContainer.scale.set(zoom, zoom);
-                
+
                 // Update fog of war with new zoom safely
                 if (fogFilter && fogFilter.updateLight && playerSprite && mapContainer) {
                     const lightX = mapContainer.x + playerSprite.x * zoom;
@@ -311,15 +309,15 @@ const PixiGameImproved = ({
             }
 
             // Event listeners
-            onMouseDown = (e) => { 
-                dragging = true; 
-                lastPos = { x: e.clientX, y: e.clientY }; 
+            onMouseDown = (e) => {
+                dragging = true;
+                lastPos = { x: e.clientX, y: e.clientY };
             };
-            
-            onMouseUp = () => { 
-                dragging = false; 
+
+            onMouseUp = () => {
+                dragging = false;
             };
-            
+
             onMouseMove = (e) => {
                 if (dragging && mapContainer) {
                     const dx = e.clientX - lastPos.x;
@@ -327,7 +325,7 @@ const PixiGameImproved = ({
                     mapContainer.x += dx;
                     mapContainer.y += dy;
                     lastPos = { x: e.clientX, y: e.clientY };
-                    
+
                     // Update fog of war safely
                     if (fogFilter && fogFilter.updateLight && playerSprite && mapContainer) {
                         const lightX = mapContainer.x + playerSprite.x * zoom;
@@ -336,7 +334,7 @@ const PixiGameImproved = ({
                     }
                 }
             };
-            
+
             onWheel = (e) => {
                 e.preventDefault();
                 setZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1));
@@ -415,7 +413,7 @@ const PixiGameImproved = ({
     return (
         <div style={{ position: 'relative', width, height, backgroundColor: '#0a0a0a' }}>
             <div ref={pixiRef} />
-            
+
             {/* Hover tooltip */}
             {hoveredItem && (
                 <div style={{
@@ -433,7 +431,7 @@ const PixiGameImproved = ({
                     {hoveredItem.name}
                 </div>
             )}
-            
+
             {/* Context menu */}
             {selectedItem && (
                 <div style={{
@@ -452,39 +450,39 @@ const PixiGameImproved = ({
                     zIndex: 1000,
                     minWidth: '100px'
                 }}>
-                    <div 
-                        style={{ 
-                            cursor: 'pointer', 
-                            padding: '4px 8px', 
+                    <div
+                        style={{
+                            cursor: 'pointer',
+                            padding: '4px 8px',
                             borderRadius: '2px',
                             transition: 'background-color 0.2s'
-                        }} 
+                        }}
                         onClick={() => handlePick(selectedItem)}
                         onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                     >
                         🤏 Pick Up
                     </div>
-                    <div 
-                        style={{ 
-                            cursor: 'pointer', 
-                            padding: '4px 8px', 
+                    <div
+                        style={{
+                            cursor: 'pointer',
+                            padding: '4px 8px',
                             borderRadius: '2px',
                             transition: 'background-color 0.2s'
-                        }} 
+                        }}
                         onClick={() => handleExamine(selectedItem)}
                         onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                     >
                         🔍 Examine
                     </div>
-                    <div 
-                        style={{ 
-                            cursor: 'pointer', 
-                            padding: '4px 8px', 
+                    <div
+                        style={{
+                            cursor: 'pointer',
+                            padding: '4px 8px',
                             borderRadius: '2px',
                             transition: 'background-color 0.2s'
-                        }} 
+                        }}
                         onClick={() => handleMove(selectedItem)}
                         onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
@@ -493,7 +491,7 @@ const PixiGameImproved = ({
                     </div>
                 </div>
             )}
-            
+
             {/* Minimalist HUD */}
             <div style={{
                 position: 'absolute',
@@ -507,7 +505,7 @@ const PixiGameImproved = ({
             }}>
                 Position: ({playerPosition.x}, {playerPosition.y})
             </div>
-            
+
             {/* Instructions */}
             <div style={{
                 position: 'absolute',
